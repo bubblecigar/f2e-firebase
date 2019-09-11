@@ -5,63 +5,87 @@
       <div class="content-panel">
         <div class="path">
           <div
-            class="folder fas fa-folder"
+            class="path-folder fas fa-folder"
             :class="{'fa-folder':currentFolder.length>0,'fa-folder-open':currentFolder.length===0}"
             @click="popFolder(-1)"
           >&nbsp;root</div>
           <div
             v-for="(folder,i) in currentFolder"
-            class="folder fas"
+            class="path-folder fas"
             :class="{'fa-folder':i<currentFolder.length-1,'fa-folder-open':i===currentFolder.length-1}"
             @click="popFolder(i)"
           >&nbsp;{{folder}}</div>
         </div>
-        <div class="tools">
-          <i
-            class="fas fa-angle-double-left btn return-btn"
-            @click="prevFolder"
-            v-show="currentFolder.length"
-          ></i>
-          <div class="wrapper">
-            <i @click="newFolder" class="fas fa-folder-plus btn"></i>
-            <div class="input-wrapper">
+        <h1 class="title-label">Folders</h1>
+        <div class="folders" v-if="contentWithinFolder">
+          <div
+            v-for="prefix in contentWithinFolder.prefixes"
+            @dblclick="pushFolder(prefix)"
+            @click="selectNode(prefix,'folder')"
+            :class="{selected:isSelected(prefix)}"
+            class="folder node"
+          >
+            <i class="fas fa-folder">
+              <i
+                class="fas fa-star btn"
+                v-if="favoriteInfo && favoriteInfo.paths.includes(prefix.location.path_)"
+              ></i>
+            </i>
+            <span class="label">{{prefix.name}}</span>
+          </div>
+          <div class="new-folder-wrapper node-btn">
+            <div @click="newFolder" class="file node" :style="{opacity:showNewFolderInput? 0:1}">
+              <i class="fas fa-folder-plus"></i>
+              <span class="folder-upload-hint">new folder</span>
+            </div>
+            <div class="input-wrapper file node selected" v-if="showNewFolderInput">
+              <i @click="createFolder" class="fas fa-folder-plus folder-create-btn"></i>
               <input
                 :class="{showNewFolderInput:showNewFolderInput}"
                 type="text"
                 class="new-folder-name"
                 v-model="newFolderName"
+                id="new-folder-input"
+                placeholder="folder name"
+                @keydown="newFolderInputKeydown"
               />
-              <i
-                @click="createFolder"
-                :class="{showNewFolderBtn:showNewFolderInput}"
-                class="fas fa-check-circle folder-create-btn"
-              ></i>
             </div>
           </div>
-          <i @click="pickFile" class="fas fa-cloud-upload-alt btn"></i>
         </div>
-        <div class="folders" v-if="contentWithinFolder && contentWithinFolder.prefixes.length">
-          <i
-            v-for="prefix in contentWithinFolder.prefixes"
-            class="fas fa-folder folder node"
-            @dblclick="pushFolder(prefix)"
-            @click="selectNode(prefix,'folder')"
-            :class="{selected:isSelected(prefix)}"
-          >&nbsp;{{prefix.name}}</i>
-        </div>
-        <div class="files" v-if="contentWithinFolder && contentWithinFolder.items.length-1>0">
+        <h1 class="title-label">Files</h1>
+        <div class="files" v-if="contentWithinFolder">
           <div
             v-for="item in contentWithinFolder.items"
             v-if="item.name != 'folderInitDoc.txt'"
             @click="selectNode(item,'file')"
-            class="file fas fa-file node"
+            class="file node"
             :class="{selected:isSelected(item)}"
-          >&nbsp;{{item.name}}</div>
+          >
+            <i class="fas fa-file">
+              <i
+                class="fas fa-star btn"
+                v-if="favoriteInfo && favoriteInfo.paths.includes(item.location.path_)"
+              ></i>
+            </i>
+            <span class="label">{{item.name}}</span>
+          </div>
+          <div @click="pickFile" class="file node node-btn">
+            <i class="fas fa-file-upload"></i>
+            <div class="progress-bar">
+              <div class="bar" v-if="uploadingProgress" :style="{width:uploadingProgress+'%'}"></div>
+              <div class="file-upload-hint" v-else>upload file</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="info-wrapper" :class="{pop:selectedNode}">
+      <div class="info-wrapper" :class="{rest:!selectedNode}">
         <div class="info-panel" v-if="selectedNode && selectedNode.type==='file'">
           <div class="operation-panel">
+            <i
+              class="far fa-star btn"
+              :class="{'fas':favoriteInfo && favoriteInfo.paths.includes(selectedNode.node.location.path_)}"
+              @click="toggleFavoritePath"
+            ></i>
             <a :href="selectedNode.node.downloadLink" target="_BLANK">
               <i class="fas fa-eye"></i>
             </a>
@@ -97,7 +121,11 @@
         </div>
         <div class="info-panel" v-if="selectedNode && selectedNode.type==='folder'">
           <div class="operation-panel">
-            <i class="far fa-star btn" @click="toggleFavorite"></i>
+            <i
+              class="far fa-star btn"
+              :class="{'fas':favoriteInfo && favoriteInfo.paths.includes(selectedNode.node.location.path_)}"
+              @click="toggleFavoritePath"
+            ></i>
             <button @click="deleteFolder(selectedNode.node)">
               <i class="fas fa-trash"></i>
             </button>
@@ -135,6 +163,7 @@
 <script>
 import { mapState } from "vuex";
 import { mapGetters } from "vuex";
+import { setTimeout } from "timers";
 export default {
   created() {
     this.$store.dispatch("getContentWithinFolder");
@@ -142,22 +171,50 @@ export default {
   data() {
     return {
       fileInput: undefined,
+      newFolderInput: undefined,
       selectedFile: null, // uploading file
       newFolderName: "",
       showNewFolderInput: false
     };
+  },
+  watch: {
+    showNewFolderInput() {
+      setTimeout(() => {
+        const dom = document.querySelector("#new-folder-input");
+        if (dom) {
+          dom.focus();
+        }
+      }, 10);
+    }
   },
   mounted() {
     // bind DOM
     this.fileInput = document.querySelector("#file-input");
   },
   computed: {
-    ...mapState(["currentFolder", "contentWithinFolder", "selectedNode"])
+    ...mapState([
+      "currentFolder",
+      "contentWithinFolder",
+      "selectedNode",
+      "uploadingProgress",
+      "favoriteInfo"
+    ])
   },
   methods: {
-    toggleFavorite() {},
+    newFolderInputKeydown(e) {
+      if (e.keyCode === 13) {
+        this.createFolder();
+      }
+    },
+    toggleFavoritePath() {
+      this.$store.dispatch(
+        "toggleFavoritePath",
+        this.selectedNode.node.location.path_
+      );
+    },
     dropNode(e) {
       let preserve = false;
+      let focus = false;
       e.path.forEach(el => {
         if (el.classList) {
           if (
@@ -166,12 +223,19 @@ export default {
           ) {
             preserve = true;
           }
+          if (el.classList.contains("new-folder-wrapper")) {
+            focus = true;
+          }
         }
       });
       if (preserve) {
+        if (!focus) {
+          this.showNewFolderInput = false;
+        }
         return;
       } else {
         this.$store.commit("CLEAR_NODE_INFO");
+        this.showNewFolderInput = false;
       }
     },
     newFolder() {
@@ -190,6 +254,11 @@ export default {
       if (!this.newFolderName) {
         return;
       }
+
+      // "/" slash is invalid
+      this.newFolderName = this.newFolderName.split("/").join(" ");
+      this.newFolderName = this.newFolderName.split(".").join(" ");
+
       this.$store.dispatch("createFolder", this.newFolderName);
       this.newFolderName = "";
       this.showNewFolderInput = false;
@@ -211,12 +280,15 @@ export default {
     },
     uploadFile(e) {
       this.selectedFile = e.target.files[0];
+      this.$store.commit("UPDATE_LOADING_PROGRESS", 1);
       this.$store.dispatch("uploadFile", this.selectedFile);
       this.selectedFile = null;
       this.fileInput.value = null;
     },
     pickFile() {
-      this.fileInput.click();
+      if (this.uploadingProgress === 0) {
+        this.fileInput.click();
+      }
     },
     deleteItem(item) {
       this.$store.dispatch("deleteItem", item);
@@ -240,40 +312,45 @@ export default {
 .path {
   display: flex;
   flex-flow: row wrap;
-  padding: 0 var(--g-m);
-  background-color: white;
-  border-radius: var(--g-l) 0 0 0;
-  border-left: 1px solid var(--c-main);
-  border-top: 1px solid var(--c-main);
+  padding: var(--g-m);
+  font-size: var(--fs-s);
   justify-content: flex-start;
-  .folder {
-    color: var(--c-main);
-  }
 }
-.wrapper-1,
+
 .wrapper-2 {
+  padding: 20px;
   display: flex;
   flex-flow: row;
   justify-content: center;
+  box-shadow: 0 0 3px black;
+  background-color: var(--c-main);
   .content-panel,
   .info-wrapper {
     flex-grow: 1;
-    margin: var(--g-l);
+    margin-top: var(--g-l);
   }
   .content-panel {
     max-width: 800px;
-    border-radius: var(--g-l) 0 0 var(--g-l);
-    margin-right: 0;
     min-height: 90vh;
+    display: flex;
+    flex-flow: column wrap;
+    overflow: hidden;
+    border-radius: var(--g-l) 0 0 var(--g-l);
+    margin-right: var(--g-l);
+    background: white;
+    box-shadow: 0 0 5px black inset;
   }
   .info-wrapper {
     width: 300px;
     flex-shrink: 0;
     flex-grow: 0;
+    background-color: white;
     overflow: hidden;
-    margin-left: 0;
-    box-shadow: 0 0 5px black;
+    box-shadow: 0 0 5px black inset;
     border-radius: 0 var(--g-l) var(--g-l) 0;
+    &.rest {
+      background-color: var(--c-rest);
+    }
   }
 }
 @media (max-width: 700px) {
@@ -282,27 +359,18 @@ export default {
     flex-flow: column;
   }
 }
-.content-panel {
-  background-color: var(--c-main);
-  overflow: hidden;
-  // box-shadow: 0 0 5px black;
-  border-radius: var(--g-l);
-}
 .info-panel {
   overflow: hidden;
   .operation-panel {
-    background-color: var(--c-main);
+    padding: var(--g-m);
   }
 }
 .folders,
 .files {
   display: flex;
-  flex-flow: column;
+  flex-flow: row wrap;
   align-items: flex-start;
   padding: var(--g-m);
-  > div {
-    margin: var(--g-m);
-  }
 }
 .tools {
   display: flex;
@@ -314,78 +382,102 @@ export default {
   height: 0;
   width: 0;
 }
-.new-folder-name {
-  width: 0;
-  margin: 0;
-  border: 0;
-  outline: 0;
-  opacity: 0;
-  color: var(--c-main);
-  font-size: var(--fs-m);
-  border-radius: var(--g-s);
-  border: 0px solid transparent;
-  transition: border 0.5s, width 0.5s, padding 0.5s, margin 0.5s,
-    background-color 0.5s, transform 0.5s, opacity 0.5s;
-}
 
-.wrapper,
-.input-wrapper {
+.wrapper {
   display: flex;
   flex-flow: row;
   align-items: center;
   position: relative;
 }
-.input-wrapper {
+.new-folder-wrapper {
+  position: relative;
+  > i {
+    text-align: center;
+    font-size: 40px;
+  }
+}
+div.input-wrapper {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: center;
+  align-items: center;
   position: absolute;
-  right: 100%;
+  top: 0;
+  left: 0;
+  .folder-create-btn {
+    // color: var(--c-label);
+  }
+  input {
+    outline: 0;
+    color: var(--c-main);
+    border: none;
+    border-radius: var(--g-s);
+    box-shadow: 0 0 3px black inset;
+    padding: var(--g-s);
+    width: 80%;
+    text-align: center;
+    margin-top: 5px;
+  }
+  ::placeholder {
+    color: var(--c-main);
+    opacity: 0.5;
+  }
 }
-.showNewFolderInput {
-  opacity: 1;
-  width: 150px;
-  padding: var(--g-s) var(--g-m);
-  padding-right: 40px;
-}
-.folder-create-btn {
+.path-folder {
+  padding: var(--g-m);
+  margin: var(--g-m);
+  margin-right: 0;
+  border-radius: var(--g-m);
   &:hover {
     cursor: pointer;
   }
-  &:active {
-    color: var(--c-active);
-  }
-  &.selected {
-    color: var(--c-selected);
-  }
-  overflow: hidden;
-  position: absolute;
-  width: 0;
-  left: 80%;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  outline: 0;
-  opacity: 0;
-  font-size: var(--fs-m);
-  transition: width 0.5s, padding 0.5s, margin 0.5s, background-color 0.5s,
-    opacity 0.5s, transform 0.5s;
-}
-.showNewFolderBtn {
-  opacity: 1;
-  color: var(--c-main);
-  width: auto;
 }
 .folder,
 .file,
 .btn {
   line-height: 1.2em;
-  border-radius: var(--g-s);
-  padding: var(--g-m);
+  border-radius: var(--g-m);
   margin: var(--g-m);
-  display: row;
-  align-items: center;
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
 }
 .folder,
 .file {
-  color: white;
+  display: flex;
+  position: relative;
+  flex-flow: column;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  .fas.fa-star {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    bottom: 15%;
+    left: 45%;
+    transform: translate3d(-50%, -50%, 0);
+    // color: white;
+    font-size: var(--fs-xs);
+  }
+  i {
+    text-align: center;
+    position: relative;
+    font-size: 40px;
+  }
+  i,
+  span {
+    padding: var(--g-s);
+  }
+  span {
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   &:hover {
     cursor: pointer;
     box-shadow: 0 0 3px black;
@@ -394,21 +486,22 @@ export default {
     box-shadow: 0 0 3px black inset;
   }
   &.selected {
-    color: var(--c-main);
-    background-color: white;
-    box-shadow: 0 0 3px black inset;
+    box-shadow: 0 0 5px black inset;
   }
 }
 .btn,
 a,
 button {
-  color: white;
+  padding: var(--g-m);
+  color: black;
+  transition: transform 0.13s;
   &:hover {
     cursor: pointer;
-    box-shadow: 0 0 3px black;
+    transform: translateY(-10%);
   }
   &:active {
-    box-shadow: 0 0 3px black inset;
+    color: black;
+    transform: translateY(0);
   }
 }
 .return-btn {
@@ -430,10 +523,6 @@ button {
   left: 100%;
   bottom: 100%;
   transform: translate3d(-50%, 50%, 0);
-}
-.content-panel {
-  display: flex;
-  flex-flow: column wrap;
 }
 .flex-col {
   display: flex;
@@ -470,7 +559,6 @@ table {
     padding: var(--g-m);
     margin: var(--g-m);
     border-radius: var(--g-s);
-    background-color: transparent;
     border: none;
     font-size: var(--fs-m);
     &:hover {
@@ -480,5 +568,41 @@ table {
 }
 .content {
   margin: var(--g-s) 0;
+}
+.title-label {
+  color: var(--c-label);
+  align-self: flex-start;
+  font-size: var(--fs-l);
+  margin-top: var(--g-l);
+  padding: 0 30px;
+}
+.node-btn {
+  color: var(--c-main);
+}
+.progress-bar {
+  align-self: center;
+  width: 70%;
+  display: flex;
+  justify-content: flex-start;
+  margin: var(--g-m);
+  font-size: var(--fs-xs);
+  .bar {
+    height: 5px;
+    margin: 9.5px 0;
+    background-color: var(--c-main);
+    border-radius: var(--g-m);
+  }
+  .file-upload-hint {
+    margin: 0 auto;
+  }
+}
+.folder-upload-hint {
+  font-size: var(--fs-xs);
+}
+#new-folder-input {
+  font-family: var(--ff);
+}
+.fas.fa-star {
+  color: var(--c-highlight);
 }
 </style>

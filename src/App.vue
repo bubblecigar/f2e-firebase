@@ -3,6 +3,7 @@
     <nav class="nav">
       <router-link to="/">User</router-link>
       <router-link to="/storage">Storage</router-link>
+      <router-link to="/search">Search</router-link>
       <div class="userStatus" v-if="currentUser">{{ currentUser.email }}</div>
     </nav>
     <router-view />
@@ -19,14 +20,17 @@ export default {
 </script>
 
 <style lang="scss">
+@import url("https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700&display=swap");
 * {
   box-sizing: border-box;
 }
 html {
+  font-family: "Source Sans Pro", "Avenir", Helvetica, Arial, sans-serif;
   --g-s: 5px;
   --g-m: 10px;
   --g-l: 15px;
 
+  --ff: "Source Sans Pro", "Avenir", Helvetica, Arial, sans-serif;
   --fs-xs: 12px;
   --fs-s: 16px;
   --fs-m: 20px;
@@ -38,11 +42,13 @@ html {
 
   --c-hover: rgb(225, 232, 243);
   --c-active: gray;
-  --c-selected: rgb(160, 185, 233);
-  --c-label: rgb(180, 180, 180);
+  --c-selected: rgb(248, 253, 180);
+  --c-rest: rgba(255, 255, 255, 0.5);
+  --c-label: rgb(160, 160, 160);
+  --c-highlight: rgb(255, 187, 0);
 
-  --c-error: red;
-  --c-safe: green;
+  --c-error: rgb(187, 74, 22);
+  --c-safe: steelblue;
 }
 button {
   outline: 0;
@@ -60,12 +66,15 @@ button {
   display: flex;
   flex: row wrap;
   align-items: center;
+  background-color: white;
+  font-weight: bold;
+
   a,
   .userStatus {
     margin: var(--g-m);
     padding: var(--g-m);
     text-decoration: none;
-    color: initial;
+    color: black;
   }
   a {
     padding: var(--g-m);
@@ -78,6 +87,9 @@ button {
   }
   .userStatus {
     margin-left: auto;
+  }
+  .router-link-exact-active {
+    text-decoration: underline;
   }
 }
 .currentUser {
