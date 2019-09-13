@@ -134,6 +134,7 @@ const store = new Vuex.Store({
     },
     CLEAR_SEARCH_RESULT(state) {
       state.searchResults.splice(0);
+      state.hasSearched = false;
     }
   },
   actions: {

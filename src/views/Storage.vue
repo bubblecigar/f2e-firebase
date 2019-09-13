@@ -324,14 +324,14 @@ export default {
   justify-content: center;
   box-shadow: 0 0 3px black;
   background-color: var(--c-main);
+  min-height: calc(100vh - 62px);
   .content-panel,
   .info-wrapper {
     flex-grow: 1;
-    margin-top: var(--g-l);
+    margin: var(--g-l) 0;
   }
   .content-panel {
     max-width: 800px;
-    min-height: 90vh;
     display: flex;
     flex-flow: column wrap;
     overflow: hidden;

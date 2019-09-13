@@ -11,6 +11,7 @@
           @keydown="keywordkeydown"
         />
         <i @click="search" class="fas fa-search search-btn"></i>
+        <i @click="clearSearchResults" class="search-cancel">&times;</i>
       </div>
       <div v-if="hasSearched || hasSearched === ''" class="result-keyword">
         &nbsp;Searching results for
@@ -68,6 +69,9 @@ export default {
     search() {
       this.$store.dispatch("traverseStorage", { keyword: this.keyword });
     },
+    clearSearchResults() {
+      this.$store.commit("CLEAR_SEARCH_RESULT");
+    },
     openFolder(path) {
       const segs = path.split("/");
       segs.shift();
@@ -121,7 +125,8 @@ export default {
   display: flex;
   flex-flow: column;
 }
-.search-btn {
+.search-btn,
+.search-cancel {
   color: var(--c-label);
   &:hover {
     cursor: pointer;
@@ -138,7 +143,7 @@ export default {
   border-radius: 2em;
   box-shadow: 0 0 3px black inset;
   padding: var(--g-m) var(--g-l);
-  margin: var(--g-m);
+  margin: 0 var(--g-m);
   transition: flex-grow 0.5s;
   &:focus {
     // flex-grow: 1;
@@ -165,6 +170,7 @@ export default {
   flex-flow: row nowrap;
   align-items: center;
   padding-left: var(--g-l);
+  margin: var(--g-m) 0;
   position: relative;
   i {
     margin: var(--g-s) 0;
